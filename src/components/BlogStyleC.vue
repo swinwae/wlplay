@@ -153,7 +153,7 @@ function goTo(view: View) {
         <p class="about-bio">开发者 & 探索者。构建有趣的东西，记录学习的过程。</p>
         <div class="about-links">
           <a href="#">GitHub</a>
-          <a href="#">Twitter</a>
+          <a href="https://term.wlplay.cn" target="_blank">Terminal</a>
         </div>
       </div>
 
