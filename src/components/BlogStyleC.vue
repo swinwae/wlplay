@@ -17,7 +17,7 @@ interface Project {
   desc: string
   tags: string[]
   color: string
-  tabId: string
+  url: string
 }
 
 interface MediaItem {
@@ -80,16 +80,14 @@ const posts: Post[] = [
   },
 ]
 
-const emit = defineEmits<{ 'navigate-tab': [tabId: string] }>()
-
 const projects: Project[] = [
-  { name: 'ECC Explorer', desc: 'ECC 可视化学习器 — 通过交互式图表理解椭圆曲线密码学的核心概念', tags: ['Vue', 'TypeScript', 'D3'], color: '#7C3AED', tabId: 'ecc-explorer' },
-  { name: 'Claude Learn', desc: 'Claude Code 学习站 — 系统学习 Claude Code 的使用技巧和最佳实践', tags: ['Vue', 'Markdown'], color: '#2563EB', tabId: 'claude-learn' },
-  { name: 'Superpowers', desc: 'Superpowers 探索器 — 浏览和理解 Claude Code 的 Superpowers 技能系统', tags: ['Vue', 'TypeScript'], color: '#059669', tabId: 'superpowers' },
+  { name: 'ECC Explorer', desc: 'ECC 可视化学习器 — 通过交互式图表理解椭圆曲线密码学的核心概念', tags: ['Vue', 'TypeScript', 'D3'], color: '#7C3AED', url: '/ecc-explorer/' },
+  { name: 'Claude Learn', desc: 'Claude Code 学习站 — 系统学习 Claude Code 的使用技巧和最佳实践', tags: ['Vue', 'Markdown'], color: '#2563EB', url: '/claude-learn/' },
+  { name: 'Superpowers', desc: 'Superpowers 探索器 — 浏览和理解 Claude Code 的 Superpowers 技能系统', tags: ['Vue', 'TypeScript'], color: '#059669', url: '/superpowers-explorer/' },
 ]
 
 function openProject(proj: Project) {
-  emit('navigate-tab', proj.tabId)
+  window.open(proj.url, '_blank')
 }
 
 const mediaItems: MediaItem[] = [
