@@ -152,7 +152,7 @@ function goTo(view: View) {
         <h3 class="about-name">Wan Li</h3>
         <p class="about-bio">开发者 & 探索者。构建有趣的东西，记录学习的过程。</p>
         <div class="about-links">
-          <a href="#">GitHub</a>
+          <a href="https://github.com/swinwae" target="_blank">GitHub</a>
           <a href="https://term.wlplay.cn" target="_blank">Terminal</a>
         </div>
       </div>
