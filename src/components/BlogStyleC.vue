@@ -282,7 +282,7 @@ function goTo(view: View) {
     </div>
 
     <footer class="site-footer">
-      <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">浙ICP备2026019804号-1</a>
+      <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">浙ICP备2026019804号</a>
     </footer>
   </div>
 </template>
