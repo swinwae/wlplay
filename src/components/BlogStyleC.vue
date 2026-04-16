@@ -280,6 +280,10 @@ function goTo(view: View) {
         </button>
       </div>
     </div>
+
+    <footer class="site-footer">
+      <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">浙ICP备2026019804号-1</a>
+    </footer>
   </div>
 </template>
 
@@ -854,6 +858,30 @@ function goTo(view: View) {
 }
 
 .project-card:hover .project-arrow {
+  color: var(--text);
+}
+
+/* ═══════════════════════════════════ */
+/* Footer                              */
+/* ═══════════════════════════════════ */
+
+.site-footer {
+  max-width: 960px;
+  margin: 48px auto 0;
+  padding: 24px 0 8px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-dim);
+  border-top: 1px solid var(--border);
+}
+
+.site-footer a {
+  color: inherit;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.site-footer a:hover {
   color: var(--text);
 }
 
