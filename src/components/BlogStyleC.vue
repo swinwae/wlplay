@@ -143,6 +143,7 @@ function goTo(view: View) {
         <div class="about-links">
           <a href="https://github.com/swinwae" target="_blank">GitHub</a>
           <a href="https://term.wlplay.cn" target="_blank">Terminal</a>
+          <a href="https://wiki.wlplay.cn" target="_blank">Wiki</a>
         </div>
       </div>
 
