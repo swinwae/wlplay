@@ -8,6 +8,7 @@ export interface Project {
 }
 
 export const projects: Project[] = [
+  { slug: 'sub-web', name: '订阅转换', desc: '订阅链接转换前端 — 支持多种代理客户端格式互转', tags: ['Vue', 'Element UI'], color: '#409EFF', path: '/sub-web/' },
   { slug: 'image-hosting', name: '图床', desc: '图片托管服务 — 上传、管理与分享图片', tags: ['Python', 'Gunicorn'], color: '#9333EA', path: '/image-hosting/' },
   { slug: 'family-ledger', name: '家庭账本', desc: '家庭记账应用 — 记录收支、成员分摊与财务统计', tags: ['Vue', 'Express', 'TypeScript'], color: '#0E7490', path: '/family-ledger/' },
   { slug: 'awesome-claude-code-use', name: 'Awesome Claude Code', desc: 'Claude Code 优秀用法集 — 收录社区精选技巧、技能与工作流', tags: ['Next.js', 'React', 'TypeScript'], color: '#EA580C', path: '/awesome-claude-code-use/' },
