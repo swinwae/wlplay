@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# 部署文档（含服务器信息，不提交）
+deploy.md
