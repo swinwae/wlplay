@@ -40,7 +40,7 @@
 └──────────────────────────────────────────────────────────────┘
                            ↑↓ 同进程
 ┌──────────────────────────────────────────────────────────────┐
-│ admin.wlplay.com  (子域，nginx auth_request 保护)              │
+│ admin.wlplay.cn  (子域，nginx auth_request 保护)              │
 │   GET  /              → Admin SPA                             │
 │   *    /api/admin/*  → 写权限 API                              │
 └──────────────────────────────────────────────────────────────┘
@@ -56,7 +56,7 @@
 
 复用 wiki.wlplay.cn 已部署的统一认证方案：
 - 应用层不写认证代码
-- nginx 在 `admin.wlplay.com` 前置 `auth_request /_auth/check` 调用 `127.0.0.1:3003/auth/check`
+- nginx 在 `admin.wlplay.cn` 前置 `auth_request /_auth/check` 调用 `127.0.0.1:3003/auth/check`
 - 未登录 401 → 重定向到 `https://wlplay.cn/auth/login?redirect=...`
 - 主域 `wlplay.cn/api/public/*` 不挂 auth_request，对所有人开放只读
 
@@ -67,7 +67,7 @@
 - `/api/admin/*` 写路由（应用层信任 nginx 已认证，不再校验）
 - `/admin/*` 服务 admin SPA 静态产物（即 `vite build` 出的 admin index.html + assets）
 
-主域 `wlplay.cn` 的主页静态产物由 nginx 直接服务（保持现状），通过 `/api/public/*` 反代到 :3010 拉数据；`admin.wlplay.com` 整域反代到 :3010。
+主域 `wlplay.cn` 的主页静态产物由 nginx 直接服务（保持现状），通过 `/api/public/*` 反代到 :3010 拉数据；`admin.wlplay.cn` 整域反代到 :3010。
 
 ---
 
@@ -246,7 +246,7 @@ server/
 
 ```ts
 // App.vue / router 守卫
-if (window.location.hostname === 'admin.wlplay.com') {
+if (window.location.hostname === 'admin.wlplay.cn') {
   // → AdminApp 路由组：/, /posts, /posts/new, /posts/:id, /tags, /media, /about
 } else {
   // → Public 路由组：/, /post/:slug, /app/:slug
@@ -339,16 +339,16 @@ if (window.location.hostname === 'admin.wlplay.com') {
 ### 7.2 nginx
 
 新增 `admin-wlplay.conf`，参照 `wiki-wlplay.conf` 改：
-- `server_name admin.wlplay.com`
+- `server_name admin.wlplay.cn`
 - `proxy_pass http://127.0.0.1:3010`
 - `auth_request` 段保持
-- 错误 401 跳 `https://wlplay.cn/auth/login?redirect=https://admin.wlplay.com$request_uri`
+- 错误 401 跳 `https://wlplay.cn/auth/login?redirect=https://admin.wlplay.cn$request_uri`
 
 修改主域 nginx 配置：新增 `location /api/public/ { proxy_pass http://127.0.0.1:3010; }`。
 
 ### 7.3 SSL
 
-`admin.wlplay.com` 申请 Let's Encrypt 证书（同 wiki 模式）。DNS 加 A 记录指向 ECS。
+`admin.wlplay.cn` 申请 Let's Encrypt 证书（同 wiki 模式）。DNS 加 A 记录指向 ECS。
 
 ### 7.4 数据初始化
 
@@ -384,7 +384,7 @@ if (window.location.hostname === 'admin.wlplay.com') {
 - 加 `loading` 状态（骨架屏或简单的 "加载中"）
 - `latestPost` 改为 `posts.find(p => p.is_featured) ?? posts[0]`
 - 文章卡片点击 → `router.push(/post/${post.slug})`（替代当前 `href="#"`）
-- 关于卡片 `about-links` 在 Wiki 后追加外链 `<a href="https://admin.wlplay.com" target="_blank">admin</a>`
+- 关于卡片 `about-links` 在 Wiki 后追加外链 `<a href="https://admin.wlplay.cn" target="_blank">admin</a>`
 
 ### 9.2 PostDetail.vue (新增)
 
@@ -401,7 +401,7 @@ if (window.location.hostname === 'admin.wlplay.com') {
 <a href="https://github.com/swinwae" target="_blank">GitHub</a>
 <a href="https://term.wlplay.cn" target="_blank">Terminal</a>
 <a href="https://wiki.wlplay.cn" target="_blank">Wiki</a>
-<a href="https://admin.wlplay.com" target="_blank">admin</a>
+<a href="https://admin.wlplay.cn" target="_blank">admin</a>
 ```
 
 ---
@@ -416,7 +416,7 @@ if (window.location.hostname === 'admin.wlplay.com') {
 | SQLite 单文件丢失 | 日 cron 备份；DB 目录独立挂载点 |
 | image-hosting 上行协议变更 | 转发逻辑封装在 `lib/image-hosting.ts`，单点修改 |
 | `is_featured` 数据竞态（两次同时 feature） | 在事务里做 `UPDATE … SET is_featured = 0; UPDATE … SET is_featured = 1` |
-| nginx auth_request 配置错误把后端裸暴露 | 部署时 curl `admin.wlplay.com/api/admin/posts` 必须返回 302 → 登录页验证 |
+| nginx auth_request 配置错误把后端裸暴露 | 部署时 curl `admin.wlplay.cn/api/admin/posts` 必须返回 302 → 登录页验证 |
 
 ---
 
@@ -425,7 +425,7 @@ if (window.location.hostname === 'admin.wlplay.com') {
 - [ ] 主页视觉跟改造前像素一致（关于卡 admin 链接除外）
 - [ ] 主页所有数据来自 `/api/public/*`，无硬编码
 - [ ] 文章卡片点击进入 `/post/:slug` 详情页正常显示
-- [ ] `admin.wlplay.com` 未登录访问被 302 跳到 wlplay.cn/auth/login
+- [ ] `admin.wlplay.cn` 未登录访问被 302 跳到 wlplay.cn/auth/login
 - [ ] 登录后能在 admin 完成：新建草稿 → 编辑正文 → 上传图片 → 发布 → 设置置顶 → 主页刷新看到变化
 - [ ] 标签管理：新建、改色、改名生效；引用中的标签删除返回 409
 - [ ] 媒体 / 关于卡的修改在主页刷新后立即生效
