@@ -156,4 +156,63 @@ export function mountAdmin(app: Hono, db: DB) {
     if (r.changes === 0) return c.json({ error: 'not found' }, 404)
     return c.json(postWithTags(db, id))
   })
+
+  // ── TAGS ──
+  const TagCreate = z.object({
+    name: z.string().min(1).max(40),
+    color: z.string().regex(/^#[0-9A-Fa-f]{3,8}$/),
+    sort: z.number().int().default(0),
+  })
+  const TagPatch = TagCreate.partial()
+
+  app.get('/api/admin/tags', (c) => {
+    const rows = db.prepare('SELECT * FROM tags ORDER BY sort ASC, id ASC').all()
+    return c.json(rows)
+  })
+
+  app.post('/api/admin/tags', async (c) => {
+    const json = await c.req.json().catch(() => null)
+    const parsed = TagCreate.safeParse(json)
+    if (!parsed.success) return c.json({ error: parsed.error.message }, 400)
+    const d = parsed.data
+    try {
+      const r = db.prepare('INSERT INTO tags (name, color, sort) VALUES (?, ?, ?)')
+        .run(d.name, d.color, d.sort)
+      return c.json(db.prepare('SELECT * FROM tags WHERE id = ?').get(Number(r.lastInsertRowid)), 201)
+    } catch (e: any) {
+      if (String(e.message).includes('UNIQUE')) return c.json({ error: 'tag exists' }, 409)
+      throw e
+    }
+  })
+
+  app.patch('/api/admin/tags/:id', async (c) => {
+    const id = Number(c.req.param('id'))
+    const exists = db.prepare('SELECT id FROM tags WHERE id = ?').get(id)
+    if (!exists) return c.json({ error: 'not found' }, 404)
+    const parsed = TagPatch.safeParse(await c.req.json().catch(() => null))
+    if (!parsed.success) return c.json({ error: parsed.error.message }, 400)
+    const d = parsed.data
+    const fields: string[] = []
+    const values: unknown[] = []
+    if (d.name !== undefined) { fields.push('name = ?'); values.push(d.name) }
+    if (d.color !== undefined) { fields.push('color = ?'); values.push(d.color) }
+    if (d.sort !== undefined) { fields.push('sort = ?'); values.push(d.sort) }
+    if (fields.length === 0) return c.json(db.prepare('SELECT * FROM tags WHERE id = ?').get(id))
+    try {
+      db.prepare(`UPDATE tags SET ${fields.join(', ')} WHERE id = ?`).run(...values, id)
+      return c.json(db.prepare('SELECT * FROM tags WHERE id = ?').get(id))
+    } catch (e: any) {
+      if (String(e.message).includes('UNIQUE')) return c.json({ error: 'tag exists' }, 409)
+      throw e
+    }
+  })
+
+  app.delete('/api/admin/tags/:id', (c) => {
+    const id = Number(c.req.param('id'))
+    const refCount = db.prepare('SELECT COUNT(*) AS n FROM post_tags WHERE tag_id = ?').get(id) as any
+    if (refCount.n > 0) return c.json({ error: 'tag in use' }, 409)
+    const r = db.prepare('DELETE FROM tags WHERE id = ?').run(id)
+    if (r.changes === 0) return c.json({ error: 'not found' }, 404)
+    return new Response(null, { status: 204 })
+  })
 }

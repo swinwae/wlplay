@@ -107,3 +107,41 @@ describe('admin posts', () => {
     expect(tagRows).toHaveLength(1)
   })
 })
+
+const get = (url: string) => app.fetch(new Request(`http://x${url}`))
+
+describe('admin tags', () => {
+  it('creates a tag', async () => {
+    const r = await post('/api/admin/tags', { name: '随笔', color: '#0E7490' })
+    expect(r.status).toBe(201)
+    const b = await r.json()
+    expect(b.id).toBeGreaterThan(0)
+  })
+
+  it('lists tags', async () => {
+    db.exec(`INSERT INTO tags (name, color) VALUES ('a','#000'), ('b','#111')`)
+    const r = await get('/api/admin/tags')
+    const b = await r.json() as any[]
+    expect(b).toHaveLength(2)
+  })
+
+  it('updates a tag', async () => {
+    const c = await (await post('/api/admin/tags', { name: 'a', color: '#000' })).json()
+    const r = await patch(`/api/admin/tags/${c.id}`, { name: 'A!' })
+    const b = await r.json()
+    expect(b.name).toBe('A!')
+  })
+
+  it('rejects deletion when referenced (409)', async () => {
+    const t = await (await post('/api/admin/tags', { name: 't', color: '#000' })).json()
+    await post('/api/admin/posts', { slug: 's', title: 't', summary: 's', tag_ids: [t.id] })
+    const r = await del(`/api/admin/tags/${t.id}`)
+    expect(r.status).toBe(409)
+  })
+
+  it('deletes an unused tag', async () => {
+    const t = await (await post('/api/admin/tags', { name: 't', color: '#000' })).json()
+    const r = await del(`/api/admin/tags/${t.id}`)
+    expect(r.status).toBe(204)
+  })
+})
