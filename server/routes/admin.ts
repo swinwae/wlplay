@@ -215,4 +215,54 @@ export function mountAdmin(app: Hono, db: DB) {
     if (r.changes === 0) return c.json({ error: 'not found' }, 404)
     return new Response(null, { status: 204 })
   })
+
+  // ── MEDIA ──
+  const MediaCreate = z.object({
+    type: z.enum(['music','book','movie']),
+    title: z.string().min(1).max(120),
+    author: z.string().min(1).max(120),
+    sort: z.number().int().default(0),
+    active: z.boolean().default(true),
+  })
+  const MediaPatch = MediaCreate.partial()
+
+  app.get('/api/admin/media', (c) => {
+    const rows = db.prepare('SELECT * FROM media_items ORDER BY sort ASC, id ASC').all()
+    return c.json((rows as any[]).map(r => ({ ...r, active: r.active === 1 })))
+  })
+
+  app.post('/api/admin/media', async (c) => {
+    const parsed = MediaCreate.safeParse(await c.req.json().catch(() => null))
+    if (!parsed.success) return c.json({ error: parsed.error.message }, 400)
+    const d = parsed.data
+    const r = db.prepare(`INSERT INTO media_items (type, title, author, sort, active)
+      VALUES (?, ?, ?, ?, ?)`).run(d.type, d.title, d.author, d.sort, d.active ? 1 : 0)
+    const row = db.prepare('SELECT * FROM media_items WHERE id = ?').get(Number(r.lastInsertRowid)) as any
+    return c.json({ ...row, active: row.active === 1 }, 201)
+  })
+
+  app.patch('/api/admin/media/:id', async (c) => {
+    const id = Number(c.req.param('id'))
+    const exists = db.prepare('SELECT id FROM media_items WHERE id = ?').get(id)
+    if (!exists) return c.json({ error: 'not found' }, 404)
+    const parsed = MediaPatch.safeParse(await c.req.json().catch(() => null))
+    if (!parsed.success) return c.json({ error: parsed.error.message }, 400)
+    const d = parsed.data
+    const fields: string[] = []
+    const values: unknown[] = []
+    for (const k of ['type','title','author','sort'] as const) {
+      if (d[k] !== undefined) { fields.push(`${k} = ?`); values.push(d[k]) }
+    }
+    if (d.active !== undefined) { fields.push('active = ?'); values.push(d.active ? 1 : 0) }
+    if (fields.length) db.prepare(`UPDATE media_items SET ${fields.join(', ')} WHERE id = ?`).run(...values, id)
+    const row = db.prepare('SELECT * FROM media_items WHERE id = ?').get(id) as any
+    return c.json({ ...row, active: row.active === 1 })
+  })
+
+  app.delete('/api/admin/media/:id', (c) => {
+    const id = Number(c.req.param('id'))
+    const r = db.prepare('DELETE FROM media_items WHERE id = ?').run(id)
+    if (r.changes === 0) return c.json({ error: 'not found' }, 404)
+    return new Response(null, { status: 204 })
+  })
 }

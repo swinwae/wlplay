@@ -145,3 +145,21 @@ describe('admin tags', () => {
     expect(r.status).toBe(204)
   })
 })
+
+describe('admin media', () => {
+  it('creates a media item', async () => {
+    const r = await post('/api/admin/media', { type: 'book', title: 'B', author: 'A' })
+    expect(r.status).toBe(201)
+  })
+  it('rejects bad type', async () => {
+    const r = await post('/api/admin/media', { type: 'tv', title: 'B', author: 'A' })
+    expect(r.status).toBe(400)
+  })
+  it('updates and deletes', async () => {
+    const c = await (await post('/api/admin/media', { type: 'movie', title: 'X', author: 'Y' })).json()
+    const u = await patch(`/api/admin/media/${c.id}`, { title: 'XX' })
+    expect((await u.json()).title).toBe('XX')
+    const d = await del(`/api/admin/media/${c.id}`)
+    expect(d.status).toBe(204)
+  })
+})
