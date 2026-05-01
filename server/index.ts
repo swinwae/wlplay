@@ -4,6 +4,7 @@ import { serve } from '@hono/node-server'
 import { getDb } from './db'
 import { mountPublic } from './routes/public'
 import { mountAdmin } from './routes/admin'
+import { mountUpload } from './routes/upload'
 
 const app = new Hono()
 const db = getDb()
@@ -11,6 +12,7 @@ const db = getDb()
 app.get('/api/health', (c) => c.json({ ok: true }))
 mountPublic(app, db)
 mountAdmin(app, db)
+mountUpload(app)
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   const port = Number(process.env.PORT || 3010)
