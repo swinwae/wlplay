@@ -4,9 +4,14 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vue-tsc -b && vite build",
-    "preview": "vite preview"
+    "dev": "concurrently -n web,api -c blue,green \"vite\" \"npm run dev:server\"",
+    "dev:server": "tsx watch server/index.ts",
+    "dev:web": "vite",
+    "build": "vue-tsc -b && vite build && tsc -p server/tsconfig.json",
+    "preview": "vite preview",
+    "seed": "tsx server/seed.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@hono/node-server": "^2.0.1",
