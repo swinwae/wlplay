@@ -8,7 +8,7 @@ export async function uploadToImageHosting(
     throw new Error('IMAGE_HOSTING_UPLOAD_URL / IMAGE_HOSTING_BASE_URL 未配置')
   }
   const form = new FormData()
-  const blob = new Blob([bytes], { type: contentType })
+  const blob = new Blob([new Uint8Array(bytes)], { type: contentType })
   form.append('file', blob, filename)
   const res = await fetch(uploadUrl, { method: 'POST', body: form })
   if (!res.ok) throw new Error(`image-hosting ${res.status}: ${await res.text()}`)
