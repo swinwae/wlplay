@@ -265,4 +265,46 @@ export function mountAdmin(app: Hono, db: DB) {
     if (r.changes === 0) return c.json({ error: 'not found' }, 404)
     return new Response(null, { status: 204 })
   })
+
+  // ── ABOUT ──
+  const AboutPatch = z.object({
+    avatar: z.string().min(1).max(8).optional(),
+    name: z.string().min(1).max(60).optional(),
+    bio: z.string().min(1).max(280).optional(),
+    links: z.array(z.object({ label: z.string().min(1), url: z.string().url() })).optional(),
+  })
+
+  app.get('/api/admin/about', (c) => {
+    const row = db.prepare('SELECT avatar, name, bio, links FROM about WHERE id = 1').get() as any
+    if (!row) return c.json(null)
+    let links = []
+    try { links = JSON.parse(row.links) } catch {}
+    return c.json({ avatar: row.avatar, name: row.name, bio: row.bio, links })
+  })
+
+  app.patch('/api/admin/about', async (c) => {
+    const parsed = AboutPatch.safeParse(await c.req.json().catch(() => null))
+    if (!parsed.success) return c.json({ error: parsed.error.message }, 400)
+    const d = parsed.data
+    const exists = db.prepare('SELECT id FROM about WHERE id = 1').get()
+    if (!exists) {
+      db.prepare(`INSERT INTO about (id, avatar, name, bio, links) VALUES (1, ?, ?, ?, ?)`)
+        .run(
+          d.avatar ?? 'W',
+          d.name ?? 'Anonymous',
+          d.bio ?? '',
+          JSON.stringify(d.links ?? [])
+        )
+    } else {
+      const fields: string[] = []
+      const values: unknown[] = []
+      if (d.avatar !== undefined) { fields.push('avatar = ?'); values.push(d.avatar) }
+      if (d.name !== undefined) { fields.push('name = ?'); values.push(d.name) }
+      if (d.bio !== undefined) { fields.push('bio = ?'); values.push(d.bio) }
+      if (d.links !== undefined) { fields.push('links = ?'); values.push(JSON.stringify(d.links)) }
+      if (fields.length) db.prepare(`UPDATE about SET ${fields.join(', ')} WHERE id = 1`).run(...values)
+    }
+    const row = db.prepare('SELECT avatar, name, bio, links FROM about WHERE id = 1').get() as any
+    return c.json({ avatar: row.avatar, name: row.name, bio: row.bio, links: JSON.parse(row.links) })
+  })
 }

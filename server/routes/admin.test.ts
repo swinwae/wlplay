@@ -163,3 +163,32 @@ describe('admin media', () => {
     expect(d.status).toBe(204)
   })
 })
+
+describe('admin about', () => {
+  it('upserts about (first call inserts)', async () => {
+    const r = await patch('/api/admin/about', {
+      avatar: 'W', name: 'Wan', bio: 'b',
+      links: [{ label: 'GitHub', url: 'https://x' }]
+    })
+    expect(r.status).toBe(200)
+    const b = await r.json()
+    expect(b.name).toBe('Wan')
+  })
+
+  it('partial update preserves other fields', async () => {
+    await patch('/api/admin/about', {
+      avatar: 'W', name: 'Wan', bio: 'b', links: []
+    })
+    const r = await patch('/api/admin/about', { bio: '新简介' })
+    const b = await r.json()
+    expect(b.bio).toBe('新简介')
+    expect(b.name).toBe('Wan')
+  })
+
+  it('GET admin about returns current', async () => {
+    await patch('/api/admin/about', { avatar: 'W', name: 'Wan', bio: 'b', links: [] })
+    const r = await get('/api/admin/about')
+    const b = await r.json()
+    expect(b.name).toBe('Wan')
+  })
+})
