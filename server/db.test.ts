@@ -4,10 +4,14 @@ import path from 'node:path'
 import os from 'node:os'
 import { openDb, runMigrations } from './db'
 
-const tmp = path.join(os.tmpdir(), `wlplay-blog-test-${process.pid}-${Date.now()}.db`)
+let tmp: string
+
+beforeEach(() => {
+  tmp = path.join(os.tmpdir(), `wlplay-blog-test-${process.pid}-${Date.now()}-${Math.random()}.db`)
+  try { fs.unlinkSync(tmp) } catch {}
+})
 
 describe('db', () => {
-  beforeEach(() => { try { fs.unlinkSync(tmp) } catch {} })
 
   it('opens a fresh sqlite file', () => {
     const db = openDb(tmp)

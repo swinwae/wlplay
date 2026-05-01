@@ -106,6 +106,39 @@ describe('admin posts', () => {
     const tagRows = db.prepare('SELECT * FROM post_tags').all() as any[]
     expect(tagRows).toHaveLength(1)
   })
+
+  // C1 回归：PATCH 不带 tag_ids 不应清空标签
+  it('PATCH without tag_ids preserves existing tag relations', async () => {
+    db.exec(`INSERT INTO tags (name, color) VALUES ('密码学','#7C3AED')`)
+    const c = await post('/api/admin/posts', { slug: 's', title: 't', summary: 's', tag_ids: [1] })
+    const id = (await c.json()).id
+    expect((db.prepare('SELECT * FROM post_tags WHERE post_id = ?').all(id) as any[]).length).toBe(1)
+    await patch(`/api/admin/posts/${id}`, { title: '新' })  // 不带 tag_ids
+    const tagsAfter = db.prepare('SELECT * FROM post_tags WHERE post_id = ?').all(id) as any[]
+    expect(tagsAfter).toHaveLength(1)  // 标签必须还在
+  })
+
+  // C1 回归：PATCH 显式传 tag_ids: [] 应清空标签
+  it('PATCH with explicit tag_ids: [] clears tags', async () => {
+    db.exec(`INSERT INTO tags (name, color) VALUES ('a','#000')`)
+    const c = await post('/api/admin/posts', { slug: 's', title: 't', summary: 's', tag_ids: [1] })
+    const id = (await c.json()).id
+    await patch(`/api/admin/posts/${id}`, { tag_ids: [] })  // 显式清空
+    const tagsAfter = db.prepare('SELECT * FROM post_tags WHERE post_id = ?').all(id) as any[]
+    expect(tagsAfter).toHaveLength(0)
+  })
+
+  // C2 回归：POST 带不存在的 tag_id 应返回 400
+  it('POST with non-existent tag_id returns 400', async () => {
+    const r = await post('/api/admin/posts', { slug: 's', title: 't', summary: 's', tag_ids: [999] })
+    expect(r.status).toBe(400)
+  })
+
+  // I3 回归：POST 带非法 cover_color 应返回 400
+  it('POST with malformed cover_color returns 400', async () => {
+    const r = await post('/api/admin/posts', { slug: 's', title: 't', summary: 's', cover_color: 'javascript:foo' })
+    expect(r.status).toBe(400)
+  })
 })
 
 const get = (url: string) => app.fetch(new Request(`http://x${url}`))

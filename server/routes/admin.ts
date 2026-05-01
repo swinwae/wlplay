@@ -10,7 +10,7 @@ const PostCreate = z.object({
   summary: z.string().min(1).max(500),
   body: z.string().default(''),
   read_time: z.string().nullable().optional(),
-  cover_color: z.string().nullable().optional(),
+  cover_color: z.string().regex(/^#[0-9A-Fa-f]{3,8}$/).nullable().optional(),
   tag_ids: z.array(z.number().int().positive()).default([]),
 })
 const PostPatch = PostCreate.partial()
@@ -77,8 +77,10 @@ export function mountAdmin(app: Hono, db: DB) {
       const id = tx()
       return c.json(postWithTags(db, id), 201)
     } catch (e: any) {
-      if (String(e.message).includes('UNIQUE')) return c.json({ error: 'slug exists' }, 409)
-      return c.json({ error: e.message }, 500)
+      const msg = String(e.message)
+      if (msg.includes('UNIQUE')) return c.json({ error: 'slug exists' }, 409)
+      if (msg.includes('FOREIGN KEY')) return c.json({ error: 'invalid tag_ids' }, 400)
+      return c.json({ error: msg }, 500)
     }
   })
 
@@ -86,10 +88,11 @@ export function mountAdmin(app: Hono, db: DB) {
     const id = Number(c.req.param('id'))
     const exists = db.prepare('SELECT id FROM posts WHERE id = ?').get(id)
     if (!exists) return c.json({ error: 'not found' }, 404)
-    const json = await c.req.json().catch(() => null)
+    const json = await c.req.json().catch(() => null) as Record<string, unknown> | null
     const parsed = PostPatch.safeParse(json)
     if (!parsed.success) return c.json({ error: parsed.error.message }, 400)
     const d = parsed.data
+    const hasTagIds = json !== null && Object.prototype.hasOwnProperty.call(json, 'tag_ids')
     const fields: string[] = []
     const values: unknown[] = []
     const setField = (col: string, v: unknown) => { fields.push(`${col} = ?`); values.push(v) }
@@ -105,13 +108,15 @@ export function mountAdmin(app: Hono, db: DB) {
         if (fields.length > 1) {
           db.prepare(`UPDATE posts SET ${fields.join(', ')} WHERE id = ?`).run(...values, id)
         }
-        if (d.tag_ids !== undefined) setTags(db, id, d.tag_ids)
+        if (hasTagIds) setTags(db, id, d.tag_ids ?? [])
       })
       tx()
       return c.json(postWithTags(db, id))
     } catch (e: any) {
-      if (String(e.message).includes('UNIQUE')) return c.json({ error: 'slug exists' }, 409)
-      return c.json({ error: e.message }, 500)
+      const msg = String(e.message)
+      if (msg.includes('UNIQUE')) return c.json({ error: 'slug exists' }, 409)
+      if (msg.includes('FOREIGN KEY')) return c.json({ error: 'invalid tag_ids' }, 400)
+      return c.json({ error: msg }, 500)
     }
   })
 
