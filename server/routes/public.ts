@@ -1,6 +1,7 @@
 // server/routes/public.ts
 import type { Hono } from 'hono'
 import type { DB } from '../db'
+import { sanitizeHtml } from '../lib/sanitize'
 
 interface PostRow {
   id: number; slug: string; title: string; summary: string; body: string
@@ -56,7 +57,9 @@ export function mountPublic(app: Hono, db: DB) {
       `SELECT * FROM posts WHERE slug = ? AND status = 'published'`
     ).get(slug) as PostRow | undefined
     if (!row) return c.json({ error: 'not found' }, 404)
-    return c.json(shapePost(db, row, true))
+    const shaped = shapePost(db, row, true) as Record<string, unknown>
+    shaped.body = sanitizeHtml(String(shaped.body ?? ''))
+    return c.json(shaped)
   })
 
   app.get('/api/public/tags', (c) => {
