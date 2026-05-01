@@ -2,6 +2,7 @@
 import Database from 'better-sqlite3'
 import fs from 'node:fs'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 export type DB = Database.Database
 
@@ -39,6 +40,9 @@ export function getDb(): DB {
   if (_singleton) return _singleton
   const filePath = process.env.DB_PATH || path.resolve(process.cwd(), 'data', 'blog.db')
   _singleton = openDb(filePath)
-  runMigrations(_singleton, path.resolve(__dirname, 'migrations'))
+  const _dir = typeof __dirname !== 'undefined'
+    ? __dirname
+    : path.dirname(fileURLToPath(import.meta.url))
+  runMigrations(_singleton, path.resolve(_dir, 'migrations'))
   return _singleton
 }
