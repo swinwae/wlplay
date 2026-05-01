@@ -1,5 +1,5 @@
 // server/seed.ts
-import { getDb } from './db'
+import { getDb } from './db.js'
 
 interface SeedPost {
   slug: string; title: string; summary: string; tag: string

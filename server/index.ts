@@ -1,10 +1,10 @@
 // server/index.ts
 import { Hono } from 'hono'
 import { serve } from '@hono/node-server'
-import { getDb } from './db'
-import { mountPublic } from './routes/public'
-import { mountAdmin } from './routes/admin'
-import { mountUpload } from './routes/upload'
+import { getDb } from './db.js'
+import { mountPublic } from './routes/public.js'
+import { mountAdmin } from './routes/admin.js'
+import { mountUpload } from './routes/upload.js'
 
 const app = new Hono()
 const db = getDb()

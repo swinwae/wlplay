@@ -1,8 +1,8 @@
 // server/routes/admin.ts
 import type { Hono } from 'hono'
 import { z } from 'zod'
-import type { DB } from '../db'
-import { sanitizeHtml } from '../lib/sanitize'
+import type { DB } from '../db.js'
+import { sanitizeHtml } from '../lib/sanitize.js'
 
 const PostCreate = z.object({
   slug: z.string().min(1).max(120).regex(/^[a-z0-9-]+$/),

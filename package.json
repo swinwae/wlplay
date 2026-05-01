@@ -7,7 +7,7 @@
     "dev": "concurrently -n web,api -c blue,green \"vite\" \"npm run dev:server\"",
     "dev:server": "tsx watch server/index.ts",
     "dev:web": "vite",
-    "build": "vue-tsc -b && vite build && tsc -p server/tsconfig.json",
+    "build": "vue-tsc -b && vite build && tsc -p server/tsconfig.json && cp -r server/migrations server/dist/migrations",
     "preview": "vite preview",
     "seed": "tsx server/seed.ts",
     "test": "vitest run",

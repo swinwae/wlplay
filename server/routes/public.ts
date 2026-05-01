@@ -1,7 +1,7 @@
 // server/routes/public.ts
 import type { Hono } from 'hono'
-import type { DB } from '../db'
-import { sanitizeHtml } from '../lib/sanitize'
+import type { DB } from '../db.js'
+import { sanitizeHtml } from '../lib/sanitize.js'
 
 interface PostRow {
   id: number; slug: string; title: string; summary: string; body: string

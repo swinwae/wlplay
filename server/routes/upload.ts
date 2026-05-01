@@ -1,6 +1,6 @@
 // server/routes/upload.ts
 import type { Hono } from 'hono'
-import { uploadToImageHosting } from '../lib/image-hosting'
+import { uploadToImageHosting } from '../lib/image-hosting.js'
 
 const ALLOWED = new Set(['image/jpeg','image/png','image/gif','image/webp'])
 
