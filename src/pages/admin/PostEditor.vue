@@ -45,7 +45,21 @@ function flash(msg: string) {
   setTimeout(() => { message.value = '' }, 2000)
 }
 
+const SLUG_RE = /^[a-z0-9-]+$/
+const validation = computed(() => {
+  if (!form.value.title.trim()) return '标题不能为空'
+  if (!form.value.slug.trim()) return 'slug 不能为空'
+  if (!SLUG_RE.test(form.value.slug)) return 'slug 只能包含小写字母、数字、连字符'
+  if (!form.value.summary.trim()) return '摘要不能为空'
+  return ''
+})
+const canSave = computed(() => validation.value === '')
+
 async function save(): Promise<AdminPost | null> {
+  if (!canSave.value) {
+    error.value = validation.value
+    return null
+  }
   error.value = ''; saving.value = true
   try {
     if (isEdit.value) {
@@ -130,12 +144,13 @@ async function remove() {
           </label>
         </div>
         <div class="card actions">
-          <button class="btn-primary" :disabled="saving" @click="save">保存草稿</button>
-          <button v-if="status === 'draft'" :disabled="saving" @click="publish">保存并发布</button>
+          <button class="btn-primary" :disabled="saving || !canSave" @click="save">保存草稿</button>
+          <button v-if="status === 'draft'" :disabled="saving || !canSave" @click="publish">保存并发布</button>
           <button v-else :disabled="saving" @click="unpublish">撤回为草稿</button>
-          <button @click="feature">{{ isFeatured ? '取消置顶' : '设为置顶' }}</button>
+          <button :disabled="saving || !canSave" @click="feature">{{ isFeatured ? '取消置顶' : '设为置顶' }}</button>
           <button v-if="isEdit" class="danger" @click="remove">删除文章</button>
         </div>
+        <div v-if="!canSave" class="hint">{{ validation }}</div>
         <div v-if="error" class="error">{{ error }}</div>
       </aside>
     </div>
@@ -189,6 +204,7 @@ header h1 { font-family: 'Outfit', sans-serif; font-size: 24px; font-weight: 600
 }
 .btn-primary { background: #1C1917 !important; color: #fff !important; border: none !important; }
 .actions button.danger { color: #B91C1C; border-color: #FCA5A5; }
-.actions button:disabled { opacity: 0.6; cursor: wait; }
+.actions button:disabled { opacity: 0.5; cursor: not-allowed; }
+.hint { color: #92400E; font-size: 12px; padding: 8px 12px; background: #FEF3C7; border-radius: 8px; }
 .error { color: #B91C1C; font-size: 13px; padding: 12px; background: #FEE2E2; border-radius: 8px; }
 </style>
