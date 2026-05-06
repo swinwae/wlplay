@@ -114,8 +114,9 @@ input[type=color] { width: 48px; height: 36px; border: 1px solid #D6D3D1; border
 .form-actions { display: flex; gap: 8px; }
 .form-actions button {
   padding: 8px 16px; border-radius: 8px; border: 1px solid #D6D3D1; background: white;
-  cursor: pointer; font-size: 14px;
+  color: #1C1917; cursor: pointer; font-size: 14px;
 }
+.form-actions .btn-primary { background: #1C1917; color: #fff; border: none; }
 .form-actions button:disabled { opacity: 0.5; cursor: not-allowed; }
 .error { color: #B91C1C; margin-bottom: 12px; font-size: 13px; }
 .tag-table { width: 100%; border-collapse: collapse; background: white; border: 1px solid #E7E5E4; border-radius: 12px; overflow: hidden; }
