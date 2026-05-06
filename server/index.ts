@@ -14,10 +14,8 @@ mountPublic(app, db)
 mountAdmin(app, db)
 mountUpload(app)
 
-if (import.meta.url === `file://${process.argv[1]}`) {
-  const port = Number(process.env.PORT || 3010)
-  serve({ fetch: app.fetch, port })
-  console.log(`wlplay-blog listening on http://127.0.0.1:${port}`)
-}
+const port = Number(process.env.PORT || 3010)
+serve({ fetch: app.fetch, port })
+console.log(`wlplay-blog listening on http://127.0.0.1:${port}`)
 
 export default app
