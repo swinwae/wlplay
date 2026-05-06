@@ -1,294 +1,287 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { projects, type Project } from '../projects'
+import { publicApi, type PublicPost, type PublicMedia, type PublicAbout } from '../api/public'
 
 type View = 'home' | 'articles' | 'projects'
 
-interface Post {
-  title: string
-  summary: string
-  date: string
-  tag: string
-  readTime: string
-  color: string
-}
-
-interface MediaItem {
-  title: string
-  author: string
-  type: 'music' | 'book' | 'movie'
-}
-
 const currentView = ref<View>('home')
 const activeTag = ref('全部')
+const router = useRouter()
 
-const posts: Post[] = [
-  {
-    title: '理解椭圆曲线密码学',
-    summary: '从有限域到点乘法，深入探索 ECC 背后的数学原理，以及它对现代安全的意义。',
-    date: '2026-04-01',
-    tag: '密码学',
-    readTime: '12 分钟',
-    color: '#7C3AED',
-  },
-  {
-    title: 'Claude Code 深度探索',
-    summary: '探索 Claude Code 作为开发伙伴的能力 — 从代码生成到架构推理。',
-    date: '2026-03-28',
-    tag: 'AI 工具',
-    readTime: '8 分钟',
-    color: '#2563EB',
-  },
-  {
-    title: '用 Vue 3 构建门户应用',
-    summary: '我如何构建 WLPlay — 一个基于 Vue 3、Vite 和 iframe 嵌入的多项目门户。',
-    date: '2026-03-15',
-    tag: 'Web 开发',
-    readTime: '6 分钟',
-    color: '#059669',
-  },
-  {
-    title: '有限域之美',
-    summary: '有限域的直觉入门，以及它在纠错编码和密码学中的精妙应用。',
-    date: '2026-02-20',
-    tag: '数学',
-    readTime: '10 分钟',
-    color: '#D97706',
-  },
-  {
-    title: 'Claude Code 的超能力系统',
-    summary: 'Superpowers 技能系统全览 — 让 AI 辅助开发更可靠的结构化工作流。',
-    date: '2026-02-05',
-    tag: 'AI 工具',
-    readTime: '5 分钟',
-    color: '#DC2626',
-  },
-  {
-    title: '为什么我开始写博客',
-    summary: '关于公开学习、构建个人知识库以及把想法写下来的价值的思考。',
-    date: '2025-12-20',
-    tag: '随笔',
-    readTime: '4 分钟',
-    color: '#0E7490',
-  },
-]
+const posts = ref<PublicPost[]>([])
+const mediaItems = ref<PublicMedia[]>([])
+const about = ref<PublicAbout | null>(null)
+const stats = ref({ posts_count: 0, total_read_minutes: 0 })
+const loaded = ref(false)
+
+onMounted(async () => {
+  const [p, m, a, s] = await Promise.all([
+    publicApi.posts(), publicApi.media(), publicApi.about(), publicApi.stats()
+  ])
+  posts.value = p
+  mediaItems.value = m
+  about.value = a
+  stats.value = s
+  loaded.value = true
+})
 
 function openProject(proj: Project) {
-  const url = `/app/${proj.slug}`
-  window.history.pushState({}, '', url)
-  window.dispatchEvent(new PopStateEvent('popstate'))
+  router.push(`/app/${proj.slug}`)
 }
 
-const mediaItems: MediaItem[] = [
-  { title: '月光', author: 'Debussy', type: 'music' },
-  { title: '数据密集型应用设计', author: 'Martin Kleppmann', type: 'book' },
-  { title: '星际穿越', author: 'Christopher Nolan', type: 'movie' },
-]
-
-const mediaIcons: Record<MediaItem['type'], string> = {
-  music: '♫',
-  book: '◈',
-  movie: '▶',
+function openPost(post: PublicPost) {
+  router.push(`/post/${post.slug}`)
 }
+
+const mediaIcons: Record<PublicMedia['type'], string> = {
+  music: '♫', book: '◈', movie: '▶',
+}
+
+function postTagName(p: PublicPost) { return p.tags[0]?.name ?? '' }
+function postTagColor(p: PublicPost) { return p.cover_color ?? p.tags[0]?.color ?? '#7C3AED' }
 
 const allTags = computed(() => {
-  const tags = new Set(posts.map((p) => p.tag))
+  const tags = new Set(posts.value.map(p => postTagName(p)).filter(Boolean))
   return ['全部', ...tags]
 })
 
 const filteredPosts = computed(() => {
-  if (activeTag.value === '全部') return posts
-  return posts.filter((p) => p.tag === activeTag.value)
+  if (activeTag.value === '全部') return posts.value
+  return posts.value.filter(p => postTagName(p) === activeTag.value)
 })
 
-const latestPost = posts[0]
-const recentPosts = posts.slice(1, 5)
+const featuredPost = computed(() =>
+  posts.value.find(p => p.is_featured) ?? posts.value[0]
+)
+const recentPosts = computed(() => {
+  const list = posts.value.slice()
+  if (featuredPost.value) {
+    const idx = list.indexOf(featuredPost.value)
+    if (idx >= 0) list.splice(idx, 1)
+  }
+  return list.slice(0, 4)
+})
+const secondaryPost = computed(() =>
+  posts.value.find(p => p !== featuredPost.value) ?? null
+)
 
-function formatDate(dateStr: string) {
-  const d = new Date(dateStr)
-  return d.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
+function formatDate(s: string | null) {
+  if (!s) return ''
+  return new Date(s).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
 }
-
-function formatDateFull(dateStr: string) {
-  const d = new Date(dateStr)
-  return d.toLocaleDateString('zh-CN', { year: 'numeric', month: 'short', day: 'numeric' })
+function formatDateFull(s: string | null) {
+  if (!s) return ''
+  return new Date(s).toLocaleDateString('zh-CN', { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
 function goTo(view: View) {
   currentView.value = view
   activeTag.value = '全部'
 }
+
+const adminUrl = computed(() => {
+  if (import.meta.env.DEV) {
+    const port = window.location.port || '5173'
+    return `http://admin.wlplay.cn:${port}`
+  }
+  return 'https://admin.wlplay.cn'
+})
+
+const aboutLinks = computed(() =>
+  (about.value?.links ?? []).filter(l => l.label !== 'admin')
+)
 </script>
 
 <template>
   <div class="style-c">
-    <!-- ═══ HOME ═══ -->
-    <div v-if="currentView === 'home'" class="bento-grid">
-      <!-- Row 1: Featured (2col×2row) + About + Stats -->
-      <article class="bento-card card-latest">
-        <span class="card-tag" :style="{ background: latestPost.color + '18', color: latestPost.color }">{{ latestPost.tag }}</span>
-        <h2 class="card-title">{{ latestPost.title }}</h2>
-        <p class="card-summary">{{ latestPost.summary }}</p>
-        <div class="card-meta">
-          <span>{{ formatDate(latestPost.date) }}</span>
-          <span class="dot" />
-          <span>{{ latestPost.readTime }}</span>
-        </div>
-      </article>
+    <div v-if="!loaded" class="loading">加载中...</div>
 
-      <div class="bento-card card-about">
-        <div class="about-avatar">W</div>
-        <h3 class="about-name">Wan Li</h3>
-        <p class="about-bio">开发者 & 探索者。构建有趣的东西，记录学习的过程。</p>
-        <div class="about-links">
-          <a href="https://github.com/swinwae" target="_blank">GitHub</a>
-          <a href="https://term.wlplay.cn" target="_blank">Terminal</a>
-          <a href="https://wiki.wlplay.cn" target="_blank">Wiki</a>
-        </div>
-      </div>
-
-      <div class="bento-card card-stats">
-        <div class="stat">
-          <span class="stat-num">{{ posts.length }}</span>
-          <span class="stat-label">篇文章</span>
-        </div>
-        <div class="stat">
-          <span class="stat-num">{{ projects.length }}</span>
-          <span class="stat-label">个项目</span>
-        </div>
-        <div class="stat">
-          <span class="stat-num">45</span>
-          <span class="stat-label">分钟阅读</span>
-        </div>
-      </div>
-
-      <!-- Row 2: Recent Articles + Recent Projects + Now -->
-      <div class="bento-card card-list">
-        <button class="list-header" @click="goTo('articles')">
-          <h3 class="list-label">最近文章</h3>
-          <span class="view-all">查看全部 →</span>
-        </button>
-        <a v-for="post in recentPosts" :key="post.title" href="#" class="list-row">
-          <span class="list-title">{{ post.title }}</span>
-          <span class="list-date">{{ formatDate(post.date) }}</span>
-        </a>
-      </div>
-
-      <div class="bento-card card-list">
-        <button class="list-header" @click="goTo('projects')">
-          <h3 class="list-label">最近项目</h3>
-          <span class="view-all">查看全部 →</span>
-        </button>
-        <button v-for="proj in projects" :key="proj.name" class="list-row" @click="openProject(proj)">
-          <div class="proj-info">
-            <span class="list-title">{{ proj.name }}</span>
-            <span class="proj-desc">{{ proj.desc }}</span>
-          </div>
-          <svg class="arrow-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg>
-        </button>
-      </div>
-
-      <div class="bento-card card-media">
-        <h3 class="list-label">在听在看</h3>
-        <div v-for="item in mediaItems" :key="item.title" class="media-row">
-          <span class="media-icon">{{ mediaIcons[item.type] }}</span>
-          <div class="media-info">
-            <span class="media-title">{{ item.title }}</span>
-            <span class="media-author">{{ item.author }}</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Row 3: Wide post card -->
-      <article class="bento-card card-post-wide" :style="{ '--c': posts[1].color }">
-        <div>
-          <span class="card-tag" :style="{ background: posts[1].color + '18', color: posts[1].color }">{{ posts[1].tag }}</span>
-          <h3 class="card-title-sm">{{ posts[1].title }}</h3>
-        </div>
-        <div class="card-meta">
-          <span>{{ formatDate(posts[1].date) }}</span>
-          <span class="dot" />
-          <span>{{ posts[1].readTime }}</span>
-        </div>
-      </article>
-    </div>
-
-    <!-- ═══ ARTICLES LIST ═══ -->
-    <div v-else-if="currentView === 'articles'" class="subpage">
-      <div class="subpage-header">
-        <button class="back-btn" @click="goTo('home')">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
-          返回
-        </button>
-        <h1 class="subpage-title">全部文章</h1>
-        <span class="subpage-count">{{ filteredPosts.length }} 篇</span>
-      </div>
-
-      <div class="tag-filter">
-        <button
-          v-for="tag in allTags"
-          :key="tag"
-          :class="['tag-btn', { active: activeTag === tag }]"
-          @click="activeTag = tag"
+    <template v-else>
+      <!-- ═══ HOME ═══ -->
+      <div v-if="currentView === 'home'" class="bento-grid">
+        <!-- Row 1: Featured (2col×2row) + About + Stats -->
+        <article
+          v-if="featuredPost"
+          class="bento-card card-latest"
+          @click="openPost(featuredPost)"
         >
-          {{ tag }}
-        </button>
-      </div>
+          <span class="card-tag" :style="{ background: postTagColor(featuredPost) + '18', color: postTagColor(featuredPost) }">{{ postTagName(featuredPost) }}</span>
+          <h2 class="card-title">{{ featuredPost.title }}</h2>
+          <p class="card-summary">{{ featuredPost.summary }}</p>
+          <div class="card-meta">
+            <span>{{ formatDate(featuredPost.published_at) }}</span>
+            <span class="dot" />
+            <span>{{ featuredPost.read_time ?? '' }}</span>
+          </div>
+        </article>
 
-      <div class="article-list">
-        <a v-for="post in filteredPosts" :key="post.title" href="#" class="article-row">
-          <div class="article-color" :style="{ background: post.color }" />
-          <div class="article-body">
-            <div class="article-top">
-              <h3 class="article-title">{{ post.title }}</h3>
-              <span class="card-tag" :style="{ background: post.color + '18', color: post.color }">{{ post.tag }}</span>
+        <div class="bento-card card-about" v-if="about">
+          <div class="about-avatar">{{ about.avatar }}</div>
+          <h3 class="about-name">{{ about.name }}</h3>
+          <p class="about-bio">{{ about.bio }}</p>
+          <div class="about-links">
+            <a v-for="link in aboutLinks" :key="link.label" :href="link.url" target="_blank">{{ link.label }}</a>
+            <a :href="adminUrl" target="_blank">admin</a>
+          </div>
+        </div>
+
+        <div class="bento-card card-stats">
+          <div class="stat">
+            <span class="stat-num">{{ stats.posts_count }}</span>
+            <span class="stat-label">篇文章</span>
+          </div>
+          <div class="stat">
+            <span class="stat-num">{{ projects.length }}</span>
+            <span class="stat-label">个项目</span>
+          </div>
+          <div class="stat">
+            <span class="stat-num">{{ stats.total_read_minutes }}</span>
+            <span class="stat-label">分钟阅读</span>
+          </div>
+        </div>
+
+        <!-- Row 2: Recent Articles + Recent Projects + Now -->
+        <div class="bento-card card-list">
+          <button class="list-header" @click="goTo('articles')">
+            <h3 class="list-label">最近文章</h3>
+            <span class="view-all">查看全部 →</span>
+          </button>
+          <button v-for="post in recentPosts" :key="post.id" class="list-row" @click="openPost(post)">
+            <span class="list-title">{{ post.title }}</span>
+            <span class="list-date">{{ formatDate(post.published_at) }}</span>
+          </button>
+        </div>
+
+        <div class="bento-card card-list">
+          <button class="list-header" @click="goTo('projects')">
+            <h3 class="list-label">最近项目</h3>
+            <span class="view-all">查看全部 →</span>
+          </button>
+          <button v-for="proj in projects" :key="proj.name" class="list-row" @click="openProject(proj)">
+            <div class="proj-info">
+              <span class="list-title">{{ proj.name }}</span>
+              <span class="proj-desc">{{ proj.desc }}</span>
             </div>
-            <p class="article-summary">{{ post.summary }}</p>
-            <div class="card-meta">
-              <span>{{ formatDateFull(post.date) }}</span>
-              <span class="dot" />
-              <span>{{ post.readTime }}阅读</span>
+            <svg class="arrow-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg>
+          </button>
+        </div>
+
+        <div class="bento-card card-media">
+          <h3 class="list-label">在听在看</h3>
+          <div v-for="item in mediaItems" :key="item.id" class="media-row">
+            <span class="media-icon">{{ mediaIcons[item.type] }}</span>
+            <div class="media-info">
+              <span class="media-title">{{ item.title }}</span>
+              <span class="media-author">{{ item.author }}</span>
             </div>
           </div>
-        </a>
-      </div>
-    </div>
+        </div>
 
-    <!-- ═══ PROJECTS LIST ═══ -->
-    <div v-else-if="currentView === 'projects'" class="subpage">
-      <div class="subpage-header">
-        <button class="back-btn" @click="goTo('home')">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
-          返回
-        </button>
-        <h1 class="subpage-title">全部项目</h1>
-        <span class="subpage-count">{{ projects.length }} 个</span>
+        <!-- Row 3: Wide post card -->
+        <article
+          v-if="secondaryPost"
+          class="bento-card card-post-wide"
+          :style="{ '--c': postTagColor(secondaryPost) }"
+          @click="openPost(secondaryPost)"
+        >
+          <div>
+            <span class="card-tag" :style="{ background: postTagColor(secondaryPost) + '18', color: postTagColor(secondaryPost) }">{{ postTagName(secondaryPost) }}</span>
+            <h3 class="card-title-sm">{{ secondaryPost.title }}</h3>
+          </div>
+          <div class="card-meta">
+            <span>{{ formatDate(secondaryPost.published_at) }}</span>
+            <span class="dot" />
+            <span>{{ secondaryPost.read_time ?? '' }}</span>
+          </div>
+        </article>
       </div>
 
-      <div class="project-grid">
-        <button v-for="proj in projects" :key="proj.name" class="project-card" @click="openProject(proj)">
-          <div class="project-color-bar" :style="{ background: proj.color }" />
-          <div class="project-body">
-            <h3 class="project-name">{{ proj.name }}</h3>
-            <p class="project-desc">{{ proj.desc }}</p>
-            <div class="project-tags">
-              <span v-for="t in proj.tags" :key="t" class="project-tag-pill">{{ t }}</span>
+      <!-- ═══ ARTICLES LIST ═══ -->
+      <div v-else-if="currentView === 'articles'" class="subpage">
+        <div class="subpage-header">
+          <button class="back-btn" @click="goTo('home')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+            返回
+          </button>
+          <h1 class="subpage-title">全部文章</h1>
+          <span class="subpage-count">{{ filteredPosts.length }} 篇</span>
+        </div>
+
+        <div class="tag-filter">
+          <button
+            v-for="tag in allTags"
+            :key="tag"
+            :class="['tag-btn', { active: activeTag === tag }]"
+            @click="activeTag = tag"
+          >
+            {{ tag }}
+          </button>
+        </div>
+
+        <div class="article-list">
+          <button v-for="post in filteredPosts" :key="post.id" class="article-row" @click="openPost(post)">
+            <div class="article-color" :style="{ background: postTagColor(post) }" />
+            <div class="article-body">
+              <div class="article-top">
+                <h3 class="article-title">{{ post.title }}</h3>
+                <span class="card-tag" :style="{ background: postTagColor(post) + '18', color: postTagColor(post) }">{{ postTagName(post) }}</span>
+              </div>
+              <p class="article-summary">{{ post.summary }}</p>
+              <div class="card-meta">
+                <span>{{ formatDateFull(post.published_at) }}</span>
+                <span class="dot" />
+                <span>{{ post.read_time }}阅读</span>
+              </div>
             </div>
-          </div>
-          <div class="project-arrow">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg>
-          </div>
-        </button>
+          </button>
+        </div>
       </div>
-    </div>
 
-    <footer class="site-footer">
-      <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">浙ICP备2026019804号</a>
-    </footer>
+      <!-- ═══ PROJECTS LIST ═══ -->
+      <div v-else-if="currentView === 'projects'" class="subpage">
+        <div class="subpage-header">
+          <button class="back-btn" @click="goTo('home')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+            返回
+          </button>
+          <h1 class="subpage-title">全部项目</h1>
+          <span class="subpage-count">{{ projects.length }} 个</span>
+        </div>
+
+        <div class="project-grid">
+          <button v-for="proj in projects" :key="proj.name" class="project-card" @click="openProject(proj)">
+            <div class="project-color-bar" :style="{ background: proj.color }" />
+            <div class="project-body">
+              <h3 class="project-name">{{ proj.name }}</h3>
+              <p class="project-desc">{{ proj.desc }}</p>
+              <div class="project-tags">
+                <span v-for="t in proj.tags" :key="t" class="project-tag-pill">{{ t }}</span>
+              </div>
+            </div>
+            <div class="project-arrow">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      <footer class="site-footer">
+        <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">浙ICP备2026019804号</a>
+      </footer>
+    </template>
   </div>
 </template>
 
 <style scoped>
+.loading {
+  text-align: center;
+  padding: 80px 0;
+  color: var(--text-dim);
+  font-size: 14px;
+}
+
 .style-c {
   --bg: #F5F5F4;
   --card-bg: #FFFFFF;
@@ -741,6 +734,12 @@ function goTo(view: View) {
   text-decoration: none;
   color: inherit;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  padding: 0;
 }
 
 .article-row:hover {

@@ -1,0 +1,227 @@
+import { describe, it, expect, beforeEach } from 'vitest'
+import fs from 'node:fs'
+import path from 'node:path'
+import os from 'node:os'
+import { Hono } from 'hono'
+import { openDb, runMigrations, type DB } from '../db'
+import { mountAdmin } from './admin'
+
+let db: DB
+let app: Hono
+
+beforeEach(() => {
+  const file = path.join(os.tmpdir(), `wlplay-admin-${process.pid}-${Date.now()}-${Math.random()}.db`)
+  try { fs.unlinkSync(file) } catch {}
+  db = openDb(file)
+  runMigrations(db, path.resolve(__dirname, '..', 'migrations'))
+  app = new Hono()
+  mountAdmin(app, db)
+})
+
+const post = (url: string, body: any) =>
+  app.fetch(new Request(`http://x${url}`, {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body)
+  }))
+
+const patch = (url: string, body: any) =>
+  app.fetch(new Request(`http://x${url}`, {
+    method: 'PATCH', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body)
+  }))
+
+const del = (url: string) =>
+  app.fetch(new Request(`http://x${url}`, { method: 'DELETE' }))
+
+describe('admin posts', () => {
+  it('creates a post', async () => {
+    const r = await post('/api/admin/posts', {
+      slug: 'hello', title: '你好', summary: 's', body: '<p>正文</p>'
+    })
+    expect(r.status).toBe(201)
+    const b = await r.json()
+    expect(b.id).toBeGreaterThan(0)
+    expect(b.status).toBe('draft')
+  })
+
+  it('rejects duplicate slug', async () => {
+    await post('/api/admin/posts', { slug: 'x', title: 't', summary: 's' })
+    const r = await post('/api/admin/posts', { slug: 'x', title: 't2', summary: 's' })
+    expect(r.status).toBe(409)
+  })
+
+  it('rejects bad payload (zod)', async () => {
+    const r = await post('/api/admin/posts', { slug: 'ok' })  // 缺 title/summary
+    expect(r.status).toBe(400)
+  })
+
+  it('sanitizes body on create', async () => {
+    const r = await post('/api/admin/posts', {
+      slug: 's', title: 't', summary: 'x', body: '<p>ok</p><script>alert(1)</script>'
+    })
+    const b = await r.json()
+    expect(b.body).not.toContain('<script>')
+  })
+
+  it('updates with PATCH', async () => {
+    const c = await post('/api/admin/posts', { slug: 's', title: 't', summary: 's' })
+    const id = (await c.json()).id
+    const r = await patch(`/api/admin/posts/${id}`, { title: '新标题' })
+    expect(r.status).toBe(200)
+    const b = await r.json()
+    expect(b.title).toBe('新标题')
+  })
+
+  it('deletes a post', async () => {
+    const c = await post('/api/admin/posts', { slug: 's', title: 't', summary: 's' })
+    const id = (await c.json()).id
+    const r = await del(`/api/admin/posts/${id}`)
+    expect(r.status).toBe(204)
+  })
+
+  it('publish sets status and published_at', async () => {
+    const c = await post('/api/admin/posts', { slug: 's', title: 't', summary: 's' })
+    const id = (await c.json()).id
+    const r = await post(`/api/admin/posts/${id}/publish`, {})
+    expect(r.status).toBe(200)
+    const b = await r.json()
+    expect(b.status).toBe('published')
+    expect(b.published_at).toBeTruthy()
+  })
+
+  it('feature enforces single featured', async () => {
+    const a = await (await post('/api/admin/posts', { slug: 'a', title: 'A', summary: 's' })).json()
+    const b = await (await post('/api/admin/posts', { slug: 'b', title: 'B', summary: 's' })).json()
+    await post(`/api/admin/posts/${a.id}/feature`, {})
+    await post(`/api/admin/posts/${b.id}/feature`, {})
+    const rows = db.prepare('SELECT id, is_featured FROM posts ORDER BY id').all() as any[]
+    expect(rows.find(r => r.id === a.id).is_featured).toBe(0)
+    expect(rows.find(r => r.id === b.id).is_featured).toBe(1)
+  })
+
+  it('attaches tag_ids on create', async () => {
+    db.exec(`INSERT INTO tags (name, color) VALUES ('密码学','#7C3AED')`)
+    const r = await post('/api/admin/posts', { slug: 's', title: 't', summary: 's', tag_ids: [1] })
+    expect(r.status).toBe(201)
+    const tagRows = db.prepare('SELECT * FROM post_tags').all() as any[]
+    expect(tagRows).toHaveLength(1)
+  })
+
+  // C1 回归：PATCH 不带 tag_ids 不应清空标签
+  it('PATCH without tag_ids preserves existing tag relations', async () => {
+    db.exec(`INSERT INTO tags (name, color) VALUES ('密码学','#7C3AED')`)
+    const c = await post('/api/admin/posts', { slug: 's', title: 't', summary: 's', tag_ids: [1] })
+    const id = (await c.json()).id
+    expect((db.prepare('SELECT * FROM post_tags WHERE post_id = ?').all(id) as any[]).length).toBe(1)
+    await patch(`/api/admin/posts/${id}`, { title: '新' })  // 不带 tag_ids
+    const tagsAfter = db.prepare('SELECT * FROM post_tags WHERE post_id = ?').all(id) as any[]
+    expect(tagsAfter).toHaveLength(1)  // 标签必须还在
+  })
+
+  // C1 回归：PATCH 显式传 tag_ids: [] 应清空标签
+  it('PATCH with explicit tag_ids: [] clears tags', async () => {
+    db.exec(`INSERT INTO tags (name, color) VALUES ('a','#000')`)
+    const c = await post('/api/admin/posts', { slug: 's', title: 't', summary: 's', tag_ids: [1] })
+    const id = (await c.json()).id
+    await patch(`/api/admin/posts/${id}`, { tag_ids: [] })  // 显式清空
+    const tagsAfter = db.prepare('SELECT * FROM post_tags WHERE post_id = ?').all(id) as any[]
+    expect(tagsAfter).toHaveLength(0)
+  })
+
+  // C2 回归：POST 带不存在的 tag_id 应返回 400
+  it('POST with non-existent tag_id returns 400', async () => {
+    const r = await post('/api/admin/posts', { slug: 's', title: 't', summary: 's', tag_ids: [999] })
+    expect(r.status).toBe(400)
+  })
+
+  // I3 回归：POST 带非法 cover_color 应返回 400
+  it('POST with malformed cover_color returns 400', async () => {
+    const r = await post('/api/admin/posts', { slug: 's', title: 't', summary: 's', cover_color: 'javascript:foo' })
+    expect(r.status).toBe(400)
+  })
+})
+
+const get = (url: string) => app.fetch(new Request(`http://x${url}`))
+
+describe('admin tags', () => {
+  it('creates a tag', async () => {
+    const r = await post('/api/admin/tags', { name: '随笔', color: '#0E7490' })
+    expect(r.status).toBe(201)
+    const b = await r.json()
+    expect(b.id).toBeGreaterThan(0)
+  })
+
+  it('lists tags', async () => {
+    db.exec(`INSERT INTO tags (name, color) VALUES ('a','#000'), ('b','#111')`)
+    const r = await get('/api/admin/tags')
+    const b = await r.json() as any[]
+    expect(b).toHaveLength(2)
+  })
+
+  it('updates a tag', async () => {
+    const c = await (await post('/api/admin/tags', { name: 'a', color: '#000' })).json()
+    const r = await patch(`/api/admin/tags/${c.id}`, { name: 'A!' })
+    const b = await r.json()
+    expect(b.name).toBe('A!')
+  })
+
+  it('rejects deletion when referenced (409)', async () => {
+    const t = await (await post('/api/admin/tags', { name: 't', color: '#000' })).json()
+    await post('/api/admin/posts', { slug: 's', title: 't', summary: 's', tag_ids: [t.id] })
+    const r = await del(`/api/admin/tags/${t.id}`)
+    expect(r.status).toBe(409)
+  })
+
+  it('deletes an unused tag', async () => {
+    const t = await (await post('/api/admin/tags', { name: 't', color: '#000' })).json()
+    const r = await del(`/api/admin/tags/${t.id}`)
+    expect(r.status).toBe(204)
+  })
+})
+
+describe('admin media', () => {
+  it('creates a media item', async () => {
+    const r = await post('/api/admin/media', { type: 'book', title: 'B', author: 'A' })
+    expect(r.status).toBe(201)
+  })
+  it('rejects bad type', async () => {
+    const r = await post('/api/admin/media', { type: 'tv', title: 'B', author: 'A' })
+    expect(r.status).toBe(400)
+  })
+  it('updates and deletes', async () => {
+    const c = await (await post('/api/admin/media', { type: 'movie', title: 'X', author: 'Y' })).json()
+    const u = await patch(`/api/admin/media/${c.id}`, { title: 'XX' })
+    expect((await u.json()).title).toBe('XX')
+    const d = await del(`/api/admin/media/${c.id}`)
+    expect(d.status).toBe(204)
+  })
+})
+
+describe('admin about', () => {
+  it('upserts about (first call inserts)', async () => {
+    const r = await patch('/api/admin/about', {
+      avatar: 'W', name: 'Wan', bio: 'b',
+      links: [{ label: 'GitHub', url: 'https://x' }]
+    })
+    expect(r.status).toBe(200)
+    const b = await r.json()
+    expect(b.name).toBe('Wan')
+  })
+
+  it('partial update preserves other fields', async () => {
+    await patch('/api/admin/about', {
+      avatar: 'W', name: 'Wan', bio: 'b', links: []
+    })
+    const r = await patch('/api/admin/about', { bio: '新简介' })
+    const b = await r.json()
+    expect(b.bio).toBe('新简介')
+    expect(b.name).toBe('Wan')
+  })
+
+  it('GET admin about returns current', async () => {
+    await patch('/api/admin/about', { avatar: 'W', name: 'Wan', bio: 'b', links: [] })
+    const r = await get('/api/admin/about')
+    const b = await r.json()
+    expect(b.name).toBe('Wan')
+  })
+})
