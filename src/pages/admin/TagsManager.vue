@@ -1,6 +1,6 @@
 <!-- src/pages/admin/TagsManager.vue -->
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { adminApi } from '../../api/admin'
 import type { PublicTag } from '../../api/public'
 
@@ -8,6 +8,8 @@ const tags = ref<PublicTag[]>([])
 const editing = ref<Partial<PublicTag> & { id?: number }>({})
 const showForm = ref(false)
 const error = ref('')
+
+const canSave = computed(() => Boolean(editing.value.name?.trim()))
 
 async function load() { tags.value = await adminApi.listTags() }
 onMounted(load)
@@ -24,6 +26,10 @@ function startEdit(t: PublicTag) {
 }
 async function save() {
   error.value = ''
+  if (!canSave.value) {
+    error.value = '名称不能为空'
+    return
+  }
   try {
     if (editing.value.id) {
       await adminApi.patchTag(editing.value.id, {
@@ -68,7 +74,7 @@ async function remove(t: PublicTag) {
       </div>
       <div v-if="error" class="error">{{ error }}</div>
       <div class="form-actions">
-        <button class="btn-primary" @click="save">保存</button>
+        <button class="btn-primary" :disabled="!canSave" @click="save">保存</button>
         <button @click="showForm = false">取消</button>
       </div>
     </div>
@@ -110,6 +116,7 @@ input[type=color] { width: 48px; height: 36px; border: 1px solid #D6D3D1; border
   padding: 8px 16px; border-radius: 8px; border: 1px solid #D6D3D1; background: white;
   cursor: pointer; font-size: 14px;
 }
+.form-actions button:disabled { opacity: 0.5; cursor: not-allowed; }
 .error { color: #B91C1C; margin-bottom: 12px; font-size: 13px; }
 .tag-table { width: 100%; border-collapse: collapse; background: white; border: 1px solid #E7E5E4; border-radius: 12px; overflow: hidden; }
 .tag-table th { background: #FAFAF9; padding: 12px 16px; text-align: left; font-size: 13px; color: #78716C; font-weight: 500; }

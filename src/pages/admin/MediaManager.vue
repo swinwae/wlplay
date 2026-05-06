@@ -1,12 +1,16 @@
 <!-- src/pages/admin/MediaManager.vue -->
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { adminApi, type AdminMedia } from '../../api/admin'
 
 const items = ref<AdminMedia[]>([])
 const editing = ref<Partial<AdminMedia> & { id?: number }>({})
 const showForm = ref(false)
 const error = ref('')
+
+const canSave = computed(() =>
+  Boolean(editing.value.title?.trim()) && Boolean(editing.value.author?.trim())
+)
 
 async function load() { items.value = await adminApi.listMedia() }
 onMounted(load)
@@ -21,6 +25,10 @@ function startEdit(m: AdminMedia) {
 }
 async function save() {
   error.value = ''
+  if (!canSave.value) {
+    error.value = '标题和作者不能为空'
+    return
+  }
   try {
     if (editing.value.id) {
       await adminApi.patchMedia(editing.value.id, {
@@ -76,7 +84,7 @@ const LABELS: Record<AdminMedia['type'], string> = { music: '音乐', book: '书
       </div>
       <div v-if="error" class="error">{{ error }}</div>
       <div class="form-actions">
-        <button class="btn-primary" @click="save">保存</button>
+        <button class="btn-primary" :disabled="!canSave" @click="save">保存</button>
         <button @click="showForm = false">取消</button>
       </div>
     </div>
@@ -118,6 +126,7 @@ input, select { border: 1px solid #D6D3D1; border-radius: 8px; padding: 8px 12px
   padding: 8px 16px; border-radius: 8px; border: 1px solid #D6D3D1; background: white;
   cursor: pointer; font-size: 14px;
 }
+.form-actions button:disabled { opacity: 0.5; cursor: not-allowed; }
 .error { color: #B91C1C; margin-bottom: 12px; font-size: 13px; }
 .media-table { width: 100%; border-collapse: collapse; background: white; border: 1px solid #E7E5E4; border-radius: 12px; overflow: hidden; }
 .media-table th { background: #FAFAF9; padding: 12px 16px; text-align: left; font-size: 13px; color: #78716C; font-weight: 500; }
