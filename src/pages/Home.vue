@@ -80,6 +80,18 @@ function goTo(view: View) {
   currentView.value = view
   activeTag.value = '全部'
 }
+
+const adminUrl = computed(() => {
+  if (import.meta.env.DEV) {
+    const port = window.location.port || '5173'
+    return `http://admin.wlplay.cn:${port}`
+  }
+  return 'https://admin.wlplay.cn'
+})
+
+const aboutLinks = computed(() =>
+  (about.value?.links ?? []).filter(l => l.label !== 'admin')
+)
 </script>
 
 <template>
@@ -110,7 +122,8 @@ function goTo(view: View) {
           <h3 class="about-name">{{ about.name }}</h3>
           <p class="about-bio">{{ about.bio }}</p>
           <div class="about-links">
-            <a v-for="link in about.links" :key="link.label" :href="link.url" target="_blank">{{ link.label }}</a>
+            <a v-for="link in aboutLinks" :key="link.label" :href="link.url" target="_blank">{{ link.label }}</a>
+            <a :href="adminUrl" target="_blank">admin</a>
           </div>
         </div>
 

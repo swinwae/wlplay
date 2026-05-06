@@ -49,7 +49,6 @@ const ABOUT = {
     { label: 'GitHub',   url: 'https://github.com/swinwae' },
     { label: 'Terminal', url: 'https://term.wlplay.cn' },
     { label: 'Wiki',     url: 'https://wiki.wlplay.cn' },
-    { label: 'admin',    url: 'https://admin.wlplay.cn' },
   ],
 }
 
