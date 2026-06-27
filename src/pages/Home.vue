@@ -89,6 +89,9 @@ const adminUrl = computed(() => {
   return 'https://admin.wlplay.cn'
 })
 
+// monitor 是 ECS 上的独立服务，没有本地 dev 版本，始终指向线上子域
+const monitorUrl = 'https://monitor.wlplay.cn'
+
 const aboutLinks = computed(() =>
   (about.value?.links ?? []).filter(l => l.label !== 'admin')
 )
@@ -124,6 +127,7 @@ const aboutLinks = computed(() =>
           <div class="about-links">
             <a v-for="link in aboutLinks" :key="link.label" :href="link.url" target="_blank">{{ link.label }}</a>
             <a :href="adminUrl" target="_blank">admin</a>
+            <a :href="monitorUrl" target="_blank">monitor</a>
           </div>
         </div>
 
